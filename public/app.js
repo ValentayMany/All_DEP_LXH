@@ -1,7 +1,12 @@
 // ============================================================
-// CONFIG — ແກ້ URL ໃຫ້ຕົງກັບ server ຂອງທ່ານ
+// CONFIG — API URL detection
 // ============================================================
-var API = "";
+// ถ้าเปิดผ่าน Cloudflare Pages (pages.dev) → ชี้ไปที่ Backend
+// ถ้าเปิดผ่าน Vercel, Render หรือ localhost → ใช้ same origin (แนะนำใช้ Vercel ตัวเดียวจบเลยครับ)
+var BACKEND_API = "https://all-dep-lsh.onrender.com"; // เปลี่ยนเป็น Vercel URL ของคุณได้หากต้องการรันผ่าน Cloudflare Pages
+var API = window.location.hostname.endsWith("pages.dev")
+  ? BACKEND_API
+  : window.location.origin;
 
 // ============================================================
 // STATE
