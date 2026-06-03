@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="lo">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ລະບົບຈັດການເອກະສານດິຈິຕອລ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=9" />
+</head>
+
+<body>
+  <div id="app">
+
+    <!-- AUTH PAGE -->
+    <div id="page-auth" class="page active">
+      <div class="auth-bg">
+        <div class="auth-card">
+          <div class="auth-logo">
+            <div class="logo-icon">📋</div>
+            <h1 class="auth-title">ລະບົບບັນທຶກເລກທີເອກະສານ<span class="auth-subtitle">ໂຮງໝໍຫຼັກໄຊ</span></h1>
+          </div>
+          <div id="login-form">
+            <h2>ເຂົ້າສູ່ລະບົບ</h2>
+            <div class="form-group"><label>ຊື່ຜູ້ໃຊ້</label>
+              <input type="text" id="login-user" placeholder="ປ້ອນຊື່ຜູ້ໃຊ້..." />
+            </div>
+            <div class="form-group"><label>ລະຫັດຜ່ານ</label>
+              <input type="password" id="login-pass" placeholder="ປ້ອນລະຫັດຜ່ານ..." />
+            </div>
+            <div id="login-error" class="error-msg hidden"></div>
+            <button class="btn-p full" onclick="doLogin()">ເຂົ້າສູ່ລະບົບ →</button>
+            <p class="switch-link">ຍັງບໍ່ມີບັນຊີ? <a onclick="showReg()">ສ້າງບັນຊີໃໝ່</a></p>
+          </div>
+          <div id="reg-form" class="hidden">
+            <h2>ສ້າງບັນຊີໃໝ່</h2>
+            <div class="form-group"><label>ຊື່ເຕັມ</label><input type="text" id="r-name"
+                placeholder="ຊື່ ແລະ ນາມສະກຸນ" /></div>
+            <div class="form-group"><label>ຊື່ຜູ້ໃຊ້</label><input type="text" id="r-user" placeholder="username" />
+            </div>
+            <div class="form-group"><label>ລະຫັດຜ່ານ</label><input type="password" id="r-pass" placeholder="password" />
+            </div>
+            <div class="form-group"><label>ແຜນກ</label>
+              <select id="r-dept">
+                <option value="">-- ເລືອກແຜນກ --</option>
+              </select>
+            </div>
+            <div id="reg-error" class="error-msg hidden"></div>
+            <button class="btn-p full" onclick="doRegister()">ສ້າງບັນຊີ →</button>
+            <p class="switch-link"><a onclick="showLogin()">← ກັບໄປຫນ້າ Login</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN PAGE -->
+    <div id="page-main" class="page hidden">
+      <div id="sidebar-overlay" class="sidebar-overlay hidden" onclick="toggleSB()"></div>
+      <div id="sidebar" class="sidebar">
+        <div class="sb-head">
+          <div class="sb-logo">📋</div>
+          <div class="sb-title">ໂຮງໝໍຫຼັກໄຊ<span>ລະບົບເອກະສານ</span></div>
+          <button class="sb-close" onclick="toggleSB()">✕</button>
+        </div>
+        <nav class="sb-nav" id="sb-nav"></nav>
+        <div class="sb-foot">
+          <div class="u-info">
+            <div class="u-av" id="u-av">A</div>
+            <div>
+              <div class="u-name" id="u-name"></div>
+              <div class="u-role" id="u-role"></div>
+            </div>
+          </div>
+          <button class="btn-out" onclick="doLogout()">ອອກຈາກລະບົບ</button>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <div class="topbar">
+          <button class="menu-btn" onclick="toggleSB()">☰</button>
+          <div class="topbar-search">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="search" placeholder="ຄົ້ນຫາເອກະສານ..." oninput="filterDocs()" />
+          </div>
+          <div class="topbar-right">
+            <div class="av-sm" id="top-av">A</div>
+          </div>
+        </div>
+
+        <!-- DASHBOARD -->
+        <div id="sec-dashboard" class="section">
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <h2>📊 Dashboard</h2>
+              <p>ພາບລວມເອກະສານທັງໝົດ</p>
+            </div>
+            <div class="sec-head-right"><button class="btn-add" onclick="loadDashboard()">🔄 ລີເຟຣສ</button></div>
+          </div>
+          <div class="stats-row">
+            <div class="stat-card">
+              <div class="stat-icon total">📊</div>
+              <div>
+                <div class="stat-val" id="db-total">0</div>
+                <div class="stat-lbl">ທັງໝົດ</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon in">📥</div>
+              <div>
+                <div class="stat-val" id="db-in">0</div>
+                <div class="stat-lbl">ຂາເຂົ້າ</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon out">📤</div>
+              <div>
+                <div class="stat-val" id="db-out">0</div>
+                <div class="stat-lbl">ຂາອອກ</div>
+              </div>
+            </div>
+          </div>
+          <div class="db-section-label">ສະຫຼຸບຕາມພະແນກ</div>
+          <div class="db-dept-grid" id="db-dept-cards">
+            <div style="color:var(--gray-400);font-size:13px;padding:20px 0">⏳ ກຳລັງໂຫລດ...</div>
+          </div>
+        </div>
+
+        <!-- DEPT APPROVER MODAL -->
+        <div id="dept-modal-overlay" class="dept-modal-overlay hidden" onclick="closeDeptModal()">
+          <div class="dept-modal" onclick="event.stopPropagation()">
+            <div class="dept-modal-head">
+              <div>
+                <div class="dept-modal-icon" id="dept-modal-icon">🏥</div>
+                <h3 id="dept-modal-title">ພະແນກ</h3>
+                <p id="dept-modal-sub">ສະຫຼຸບການອານຸມັດ</p>
+              </div>
+              <button class="dept-modal-close" onclick="closeDeptModal()">✕</button>
+            </div>
+            <div class="dept-modal-stats" id="dept-modal-stats"></div>
+            <div class="dept-modal-list" id="dept-modal-list"></div>
+          </div>
+        </div>
+
+        <!-- ABOUT -->
+        <div id="sec-about" class="section">
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <h2>About</h2>
+              <p>ຂໍ້ມູນລະບົບ</p>
+            </div>
+          </div>
+          <div class="about-card">
+            <div class="about-icon">📋</div>
+            <h3>ລະບົບຈັດການເອກະສານດິຈິຕອລ ໂຮງໝໍຫຼັກໄຊ</h3>
+            <p>ລະບົບຈັດການເອກະສານດິຈິຕອລ ສ້າງໂດຍໃຊ້ Node.js + Supabase</p>
+            <div class="version-badge">✦ Version 2.0.0</div>
+          </div>
+        </div>
+ 
+        <!-- APPROVERS MANAGER (ADMIN ONLY) -->
+        <div id="sec-approvers" class="section">
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <h2>✍️ ຈັດການຜູ້ອານຸມັດ</h2>
+              <p>ຈັດການລາຍຊື່ຜູ້ມີສິດອານຸມັດເອກະສານຂອງແຕ່ລະພະແນກ</p>
+            </div>
+            <div class="sec-head-right">
+              <button class="btn-add" onclick="openApproverForm()">+ ເພີ່ມຜູ້ອານຸມັດ</button>
+            </div>
+          </div>
+          <div class="apr-container" id="approvers-container">
+            <div style="color:var(--gray-400);font-size:13px;padding:20px 0">⏳ ກຳລັງໂຫລດ...</div>
+          </div>
+        </div>
+
+        <div id="dynamic-sections"></div>
+      </div>
+    </div>
+
+    <!-- MODAL -->
+    <div id="modal" class="modal-ov hidden" onclick="closeModalOnOutsideClick(event)">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="modal-title">ເພີ່ມເອກະສານໃໝ່</h3>
+          <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-grid" style="gap:0 20px">
+            <div class="field-group full">
+              <label class="field-label">ເລກທີເອກະສານ</label>
+              <input type="text" class="field-input" id="f-num" />
+            </div>
+            <div class="field-group">
+              <label class="field-label">ວັນທີເອກະສານ</label>
+              <input type="date" class="field-input" id="f-date" />
+            </div>
+            <div class="field-group">
+              <label class="field-label">ເວລາ</label>
+              <input type="time" class="field-input" id="f-time" step="1" />
+            </div>
+            <div class="field-group full">
+              <label class="field-label">ຊື່ເອກະສານ</label>
+              <input type="text" class="field-input" id="f-subj" placeholder="ປ້ອນຫົວຂໍ້..." />
+            </div>
+            <div class="field-group full">
+              <label class="field-label">ຜູ້ຮ້ອງຂໍ</label>
+              <input type="text" class="field-input" id="f-recv" placeholder="ຊື່ຜູ້ຮ້ອງຂໍ..." />
+            </div>
+            <div class="field-group">
+              <label class="field-label">ພະແນກຂອງຜູ້ຮ້ອງຂໍ</label>
+              <select class="field-input" id="f-dept">
+                <option value="">-- ເລືອກ --</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">ປະເພດ</label>
+              <select class="field-input" id="f-type">
+                <option value="">-- ເລືອກ --</option>
+                <option value="ຂາເຂົ້າ">📥 ຂາເຂົ້າ</option>
+                <option value="ຂາອອກ">📤 ຂາອອກ</option>
+              </select>
+            </div>
+            <div class="field-group full">
+              <label class="field-label">ອານຸມັດໂດຍ</label>
+              <select class="field-input" id="f-approved">
+                <option value="">-- ເລືອກ --</option>
+              </select>
+            </div>
+            <div class="field-group full">
+              <label class="field-label">ລາຍລະອຽດ</label>
+              <textarea class="field-input" id="f-det" rows="3" placeholder="ລາຍລະອຽດ..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-s" onclick="closeModal()">ຍົກເລີກ</button>
+          <button class="btn-p" id="save-btn" onclick="submitDoc()">💾 ບັນທຶກ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- APPROVER MODAL -->
+    <div id="modal-approver" class="modal-ov hidden" onclick="closeApproverModalOnOutsideClick(event)">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="modal-approver-title">ເພີ່ມຜູ້ອານຸມັດ</h3>
+          <button class="modal-close" onclick="closeApproverModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="field-group full">
+              <label class="field-label">ຊື່ ແລະ ນາມສະກຸນ</label>
+              <input type="text" class="field-input" id="fa-name" placeholder="ປ້ອນຊື່ຜູ້ອານຸມັດ..." />
+            </div>
+            <div class="field-group full">
+              <label class="field-label">ພະແນກ</label>
+              <select class="field-input" id="fa-dept">
+                <option value="">-- ເລືອກພະແນກ --</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-s" onclick="closeApproverModal()">ຍົກເລີກ</button>
+          <button class="btn-p" id="save-approver-btn" onclick="submitApprover()">💾 ບັນທຶກ</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <div id="loading" class="loading-ov hidden">
+      <div class="spinner"></div>
+      <div class="loading-text">ກຳລັງໂຫລດ...</div>
+    </div>
+  </div>
+  <script src="app.js?v=9"></script>
+</body>
+
+</html>
