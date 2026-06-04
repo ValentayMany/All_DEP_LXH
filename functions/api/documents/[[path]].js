@@ -2,17 +2,17 @@ import { createClient } from "@supabase/supabase-js";
 import jwt from "@tsndr/cloudflare-worker-jwt";
 
 const DEPT_PREFIX = {
-  ພະແນກບັນຊີການເງິນ: "AFD/LXH/",
-  ພະແນກບໍລິຫານຫ້ອງການ: "AD/LXH/",
-  ພະແນກພັດທະນາທຸລະກິດ: "BIZ.LXH/",
+  เบเบฐเปเบเบเบเบฑเบเบเบตเบเบฒเบเป€เบเบดเบ: "AFD/LXH/",
+  เบเบฐเปเบเบเบเปเบฅเบดเบซเบฒเบเบซเปเบญเบเบเบฒเบ: "AD/LXH/",
+  เบเบฐเปเบเบเบเบฑเบ”เบ—เบฐเบเบฒเบ—เบธเบฅเบฐเบเบดเบ”: "BIZ.LXH/",
   Partnership: "PNS./LXH/",
-  ພະແນກBanding: "CBD.LXH/",
-  ຝ່າຍການແພດ: "MD.LXH/",
-  ພະແນກສາງ: "ID/LXH/",
-  ພະແນກບຸກຄະລາກອນ: "HR/LXH/",
-  ຝາຍບໍລິຫານ: "AD/LXH/",
-  ພະແນກຈັດຊື້: "ID/LXH/",
-  ພະແນກໄອທີ: "IT/LXH/",
+  เบเบฐเปเบเบBanding: "CBD.LXH/",
+  เบเปเบฒเบเบเบฒเบเปเบเบ”: "MD.LXH/",
+  เบเบฐเปเบเบเบชเบฒเบ: "ID/LXH/",
+  เบเบฐเปเบเบเบเบธเบเบเบฐเบฅเบฒเบเบญเบ: "HR/LXH/",
+  เบเบฒเบเบเปเบฅเบดเบซเบฒเบ: "AD/LXH/",
+  เบเบฐเปเบเบเบเบฑเบ”เบเบทเป: "ID/LXH/",
+  เบเบฐเปเบเบเปเบญเบ—เบต: "IT/LXH/",
 };
 
 async function getUser(request, env) {
@@ -30,20 +30,21 @@ async function getUser(request, env) {
 
 export async function onRequest({ request, env, params }) {
   const user = await getUser(request, env);
-  if (!user)
+  if (!user) {
     return Response.json(
       { success: false, message: "Unauthorized" },
       { status: 401 },
     );
+  }
 
   const sb = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
   const url = new URL(request.url);
-  const path = params.catchall ? params.catchall.join("/") : "";
+  const path = params.path ? params.path.join("/") : "";
   const method = request.method;
 
   if (method === "GET" && path === "next-number") {
     const dept = url.searchParams.get("dept") || "";
-    const isStorage = dept === "ພະແນກສາງ" || dept === "ພະແນກຈັດຊື້";
+    const isStorage = dept === "เบเบฐเปเบเบเบชเบฒเบ" || dept === "เบเบฐเปเบเบเบเบฑเบ”เบเบทเป";
     const prefix = isStorage ? "" : DEPT_PREFIX[dept] || "DOC/";
     const { data } = await sb
       .from("documents")
@@ -55,29 +56,26 @@ export async function onRequest({ request, env, params }) {
       if (isStorage) {
         if (num.endsWith("/ID/LXH")) {
           const n = parseInt(num.replace("/ID/LXH", ""), 10);
-          if (!isNaN(n) && n > maxNum) maxNum = n;
+          if (!Number.isNaN(n) && n > maxNum) maxNum = n;
         }
-      } else {
-        if (num.startsWith(prefix)) {
-          const n = parseInt(num.replace(prefix, ""), 10);
-          if (!isNaN(n) && n > maxNum) maxNum = n;
-        }
+      } else if (num.startsWith(prefix)) {
+        const n = parseInt(num.replace(prefix, ""), 10);
+        if (!Number.isNaN(n) && n > maxNum) maxNum = n;
       }
     });
     const nextNum = maxNum + 1;
     const docNumber = isStorage
-      ? String(nextNum).padStart(5, "0") + "/ID/LXH"
-      : prefix + String(nextNum).padStart(7, "0");
+      ? `${String(nextNum).padStart(5, "0")}/ID/LXH`
+      : `${prefix}${String(nextNum).padStart(7, "0")}`;
     return Response.json({ success: true, docNumber });
   }
 
   if (method === "GET" && !path) {
     const dept = url.searchParams.get("dept");
     const role = url.searchParams.get("role");
-    let query = sb
-      .from("documents")
-      .select("*")
-      .order("created_at", { ascending: false });
+    let query = sb.from("documents").select("*").order("created_at", {
+      ascending: false,
+    });
     if (role !== "admin") {
       const depts = dept ? dept.split(",") : [];
       query = query.in(
@@ -144,8 +142,9 @@ export async function onRequest({ request, env, params }) {
   }
 
   if (method === "DELETE" && path) {
-    if (user.role !== "admin")
-      return Response.json({ success: false, message: "ບໍ່ມີສິດລຶບ" });
+    if (user.role !== "admin") {
+      return Response.json({ success: false, message: "Forbidden" });
+    }
     const { error } = await sb
       .from("documents")
       .delete()
@@ -154,8 +153,5 @@ export async function onRequest({ request, env, params }) {
     return Response.json({ success: true });
   }
 
-  return Response.json(
-    { success: false, message: "Not found" },
-    { status: 404 },
-  );
+  return Response.json({ success: false, message: "Not found" }, { status: 404 });
 }

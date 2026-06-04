@@ -5,7 +5,8 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "nodemon server/index.js"
+    "dev": "nodemon server/index.js",
+    "php": "php -S localhost:3000 router.php"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.43.0",

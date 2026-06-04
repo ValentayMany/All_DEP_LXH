@@ -1,12 +1,14 @@
 // ============================================================
-// CONFIG — API URL detection
+// CONFIG — API URL (PHP + MySQL backend)
 // ============================================================
-// ถ้าเปิดผ่าน Cloudflare Pages (pages.dev) → ชี้ไปที่ Backend
-// ถ้าเปิดผ่าน Vercel, Render หรือ localhost → ใช้ same origin (แนะนำใช้ Vercel ตัวเดียวจบเลยครับ)
-var BACKEND_API = "https://all-dep-lsh.onrender.com"; // เปลี่ยนเป็น Vercel URL ของคุณได้หากต้องการรันผ่าน Cloudflare Pages
-var API = window.location.hostname.endsWith("pages.dev")
-  ? BACKEND_API
-  : window.location.origin;
+// ใช้ same origin เมื่อรันผ่าน XAMPP / php -S router.php
+// ถ้า frontend แยก host (เช่น Cloudflare Pages) ให้ตั้งค่าใน localStorage: lhms_api_base
+var API =
+  localStorage.getItem("lhms_api_base") ||
+  (window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? window.location.origin
+    : "https://all-dep-lxh.onrender.com");
 
 // ============================================================
 // STATE
