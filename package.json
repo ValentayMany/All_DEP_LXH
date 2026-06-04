@@ -9,7 +9,8 @@
     "php": "php -S localhost:3000 router.php"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.43.0",
+    "@supabase/supabase-js": "^2.107.0",
+    "@tsndr/cloudflare-worker-jwt": "^3.2.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
