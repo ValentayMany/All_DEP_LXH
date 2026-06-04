@@ -3,12 +3,7 @@
 // ============================================================
 // ใช้ same origin เมื่อรันผ่าน XAMPP / php -S router.php
 // ถ้า frontend แยก host (เช่น Cloudflare Pages) ให้ตั้งค่าใน localStorage: lhms_api_base
-var API =
-  localStorage.getItem("lhms_api_base") ||
-  (window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1"
-    ? window.location.origin
-    : "https://all-dep-lxh.onrender.com");
+var API = "";
 
 // ============================================================
 // STATE
