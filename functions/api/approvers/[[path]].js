@@ -1,26 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
-import jwt from "@tsndr/cloudflare-worker-jwt";
-
-async function getUser(request, env) {
-  const auth = request.headers.get("Authorization") || "";
-  const token = auth.replace("Bearer ", "");
-  if (!token) return null;
-  try {
-    const ok = await jwt.verify(token, env.JWT_SECRET);
-    if (!ok) return null;
-    return JSON.parse(atob(token.split(".")[1]));
-  } catch {
-    return null;
-  }
-}
+import { forbidden, getUser, unauthorized } from "../../_shared/auth.js";
 
 export async function onRequest({ request, env, params }) {
   const user = await getUser(request, env);
   if (!user) {
-    return Response.json(
-      { success: false, message: "Unauthorized" },
-      { status: 401 },
-    );
+    return unauthorized();
   }
 
   const sb = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
@@ -46,10 +30,7 @@ export async function onRequest({ request, env, params }) {
 
   if (method === "GET" && !path) {
     if (user.role !== "admin") {
-      return Response.json(
-        { success: false, message: "Forbidden" },
-        { status: 403 },
-      );
+      return forbidden();
     }
     const { data, error } = await sb
       .from("approvers")
@@ -62,10 +43,7 @@ export async function onRequest({ request, env, params }) {
 
   if (method === "POST" && !path) {
     if (user.role !== "admin") {
-      return Response.json(
-        { success: false, message: "Forbidden" },
-        { status: 403 },
-      );
+      return forbidden();
     }
     const { name, department } = await request.json();
     if (!name || !department) {
@@ -85,10 +63,7 @@ export async function onRequest({ request, env, params }) {
 
   if (method === "PUT" && path) {
     if (user.role !== "admin") {
-      return Response.json(
-        { success: false, message: "Forbidden" },
-        { status: 403 },
-      );
+      return forbidden();
     }
     const { name, department, is_active } = await request.json();
     const updateData = {};

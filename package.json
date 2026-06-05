@@ -4,6 +4,9 @@
   "description": "LHMS e-Document System",
   "main": "server/index.js",
   "scripts": {
+    "build": "node -e \"console.log('Static site ready in public/')\"",
+    "pages:dev": "npx wrangler pages dev public",
+    "pages:deploy": "npx wrangler pages deploy public",
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",
     "php": "php -S localhost:3000 router.php"

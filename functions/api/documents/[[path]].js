@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import jwt from "@tsndr/cloudflare-worker-jwt";
+import { forbidden, getUser, unauthorized } from "../../_shared/auth.js";
 
 const DEPT_PREFIX = {
   "ພະແນກບັນຊີການເງິນ": "AFD/LXH/",
@@ -15,26 +15,10 @@ const DEPT_PREFIX = {
   "ພະແນກໄອທີ": "IT/LXH/",
 };
 
-async function getUser(request, env) {
-  const auth = request.headers.get("Authorization") || "";
-  const token = auth.replace("Bearer ", "");
-  if (!token) return null;
-  try {
-    const ok = await jwt.verify(token, env.JWT_SECRET);
-    if (!ok) return null;
-    return JSON.parse(atob(token.split(".")[1]));
-  } catch {
-    return null;
-  }
-}
-
 export async function onRequest({ request, env, params }) {
   const user = await getUser(request, env);
   if (!user) {
-    return Response.json(
-      { success: false, message: "Unauthorized" },
-      { status: 401 },
-    );
+    return unauthorized();
   }
 
   const sb = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
@@ -143,7 +127,7 @@ export async function onRequest({ request, env, params }) {
 
   if (method === "DELETE" && path) {
     if (user.role !== "admin") {
-      return Response.json({ success: false, message: "Forbidden" });
+      return forbidden();
     }
     const { error } = await sb
       .from("documents")
