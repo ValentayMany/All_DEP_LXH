@@ -15,11 +15,13 @@ const PORT = process.env.PORT || 3000;
 app.set("trust proxy", 1);
 
 // CORS — allow all origins (Cloudflare Pages + Railway + localhost)
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
 
@@ -34,10 +36,8 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 
-if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`✅ LHMS Server running on http://localhost:${PORT}`);
-  });
-}
+app.listen(PORT, () => {
+  console.log(`✅ LHMS Server running on port ${PORT}`);
+});
 
 module.exports = app;
