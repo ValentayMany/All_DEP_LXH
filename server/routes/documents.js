@@ -19,6 +19,25 @@ const DEPT_PREFIX = {
   "ພະແນກໄອທີ":            "IT/LXH/",
 };
 
+const DEPT_GROUP_MAP = {
+  "ພະແນກບໍລິຫານຫ້ອງການ": ["ພະແນກບໍລິຫານຫ້ອງການ", "ຝາຍບໍລິຫານ"],
+  "ຝາຍບໍລິຫານ": ["ພະແນກບໍລິຫານຫ້ອງການ", "ຝາຍບໍລິຫານ"],
+  "ພະແນກສາງ": ["ພະແນກສາງ", "ພະແນກຈັດຊື້"],
+  "ພະແນກຈັດຊື້": ["ພະແນກສາງ", "ພະແນກຈັດຊື້"],
+  "ພະແນກພັດທະນາທຸລະກິດ": ["ພະແນກພັດທະນາທຸລະກິດ", "ພະແນກBanding", "Partnership"],
+  "ພະແນກBanding": ["ພະແນກພັດທະນາທຸລະກິດ", "ພະແນກBanding", "Partnership"],
+  Partnership: ["ພະແນກພັດທະນາທຸລະກິດ", "ພະແນກBanding", "Partnership"],
+  "ພະແນກບຸກຄະລາກອນ": ["ພະແນກບຸກຄະລາກອນ"],
+  "ພະແນກບັນຊີການເງິນ": ["ພະແນກບັນຊີການເງິນ"],
+  "ຝ່າຍການແພດ": ["ຝ່າຍການແພດ"],
+  "ພະແນກໄອທີ": ["ພະແນກໄອທີ"],
+};
+
+function allowedDepartmentsFor(user) {
+  const dept = String(user.department || "").trim();
+  return DEPT_GROUP_MAP[dept] || (dept ? [dept] : []);
+}
+
 // GET /api/documents/next-number?dept=xxx
 router.get("/next-number", auth, async (req, res) => {
   const dept = req.query.dept || "";
@@ -62,9 +81,9 @@ router.get("/", auth, async (req, res) => {
     .select("*")
     .order("created_at", { ascending: false });
 
-  // Non-admin users can only read their own department.
+  // Non-admin users can only read departments in their configured group.
   if (req.user.role !== "admin") {
-    query = query.eq("department", String(req.user.department || "").trim());
+    query = query.in("department", allowedDepartmentsFor(req.user));
   }
 
   const { data, error } = await query;
@@ -94,7 +113,7 @@ router.post("/", auth, async (req, res) => {
   const d = req.body;
   if (
     req.user.role !== "admin" &&
-    String(d.department || "").trim() !== String(req.user.department || "").trim()
+    !allowedDepartmentsFor(req.user).includes(String(d.department || "").trim())
   ) {
     return res.status(403).json({ success: false, message: "Forbidden" });
   }
@@ -121,7 +140,7 @@ router.put("/:docNumber", auth, async (req, res) => {
   const d = req.body;
   if (
     req.user.role !== "admin" &&
-    String(d.department || "").trim() !== String(req.user.department || "").trim()
+    !allowedDepartmentsFor(req.user).includes(String(d.department || "").trim())
   ) {
     return res.status(403).json({ success: false, message: "Forbidden" });
   }
@@ -140,7 +159,7 @@ router.put("/:docNumber", auth, async (req, res) => {
     })
     .eq("doc_number", req.params.docNumber);
   if (req.user.role !== "admin") {
-    query = query.eq("department", String(req.user.department || "").trim());
+    query = query.in("department", allowedDepartmentsFor(req.user));
   }
   const { error } = await query;
 

@@ -15,6 +15,25 @@ const DEPT_PREFIX = {
   "ພະແນກໄອທີ": "IT/LXH/",
 };
 
+const DEPT_GROUP_MAP = {
+  "ພະແນກບໍລິຫານຫ້ອງການ": ["ພະແນກບໍລິຫານຫ້ອງການ", "ຝາຍບໍລິຫານ"],
+  "ຝາຍບໍລິຫານ": ["ພະແນກບໍລິຫານຫ້ອງການ", "ຝາຍບໍລິຫານ"],
+  "ພະແນກສາງ": ["ພະແນກສາງ", "ພະແນກຈັດຊື້"],
+  "ພະແນກຈັດຊື້": ["ພະແນກສາງ", "ພະແນກຈັດຊື້"],
+  "ພະແນກພັດທະນາທຸລະກິດ": ["ພະແນກພັດທະນາທຸລະກິດ", "ພະແນກBanding", "Partnership"],
+  "ພະແນກBanding": ["ພະແນກພັດທະນາທຸລະກິດ", "ພະແນກBanding", "Partnership"],
+  Partnership: ["ພະແນກພັດທະນາທຸລະກິດ", "ພະແນກBanding", "Partnership"],
+  "ພະແນກບຸກຄະລາກອນ": ["ພະແນກບຸກຄະລາກອນ"],
+  "ພະແນກບັນຊີການເງິນ": ["ພະແນກບັນຊີການເງິນ"],
+  "ຝ່າຍການແພດ": ["ຝ່າຍການແພດ"],
+  "ພະແນກໄອທີ": ["ພະແນກໄອທີ"],
+};
+
+function allowedDepartmentsFor(user) {
+  const dept = String(user.department || "").trim();
+  return DEPT_GROUP_MAP[dept] || (dept ? [dept] : []);
+}
+
 export async function onRequest({ request, env, params }) {
   const user = await getUser(request, env);
   if (!user) {
@@ -59,7 +78,7 @@ export async function onRequest({ request, env, params }) {
       ascending: false,
     });
     if (user.role !== "admin") {
-      query = query.eq("department", String(user.department || "").trim());
+      query = query.in("department", allowedDepartmentsFor(user));
     }
     const { data, error } = await query;
     if (error) return Response.json({ success: false, message: error.message });
@@ -84,7 +103,7 @@ export async function onRequest({ request, env, params }) {
     const d = await request.json();
     if (
       user.role !== "admin" &&
-      String(d.department || "").trim() !== String(user.department || "").trim()
+      !allowedDepartmentsFor(user).includes(String(d.department || "").trim())
     ) {
       return forbidden();
     }
@@ -109,7 +128,7 @@ export async function onRequest({ request, env, params }) {
     const d = await request.json();
     if (
       user.role !== "admin" &&
-      String(d.department || "").trim() !== String(user.department || "").trim()
+      !allowedDepartmentsFor(user).includes(String(d.department || "").trim())
     ) {
       return forbidden();
     }
@@ -128,7 +147,7 @@ export async function onRequest({ request, env, params }) {
       })
       .eq("doc_number", decodeURIComponent(path));
     if (user.role !== "admin") {
-      query = query.eq("department", String(user.department || "").trim());
+      query = query.in("department", allowedDepartmentsFor(user));
     }
     const { error } = await query;
     if (error) return Response.json({ success: false, message: error.message });

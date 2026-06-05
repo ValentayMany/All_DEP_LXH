@@ -81,7 +81,7 @@ function visibleDeptNamesForUser() {
       return d.name;
     });
   }
-  return cuDept ? [cuDept] : [];
+  return DEPT_GROUP_MAP[cuDept] || (cuDept ? [cuDept] : []);
 }
 function esc(s) {
   return String(s || "")
