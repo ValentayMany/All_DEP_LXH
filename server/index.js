@@ -45,6 +45,11 @@ app.get("*", (req, res) => {
     }
   });
 });
+console.log("ENV CHECK:", {
+  SUPABASE_URL: !!process.env.SUPABASE_URL,
+  SUPABASE_KEY: !!process.env.SUPABASE_KEY,
+  JWT_SECRET: !!process.env.JWT_SECRET,
+});
 
 // listen (Render ต้องใช้แบบนี้)
 app.listen(PORT, "0.0.0.0", () => {
