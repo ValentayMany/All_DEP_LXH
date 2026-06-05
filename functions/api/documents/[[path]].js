@@ -55,17 +55,11 @@ export async function onRequest({ request, env, params }) {
   }
 
   if (method === "GET" && !path) {
-    const dept = url.searchParams.get("dept");
-    const role = url.searchParams.get("role");
     let query = sb.from("documents").select("*").order("created_at", {
       ascending: false,
     });
-    if (role !== "admin") {
-      const depts = dept ? dept.split(",") : [];
-      query = query.in(
-        "department",
-        depts.map((d) => d.trim()),
-      );
+    if (user.role !== "admin") {
+      query = query.eq("department", String(user.department || "").trim());
     }
     const { data, error } = await query;
     if (error) return Response.json({ success: false, message: error.message });
@@ -88,6 +82,12 @@ export async function onRequest({ request, env, params }) {
 
   if (method === "POST" && !path) {
     const d = await request.json();
+    if (
+      user.role !== "admin" &&
+      String(d.department || "").trim() !== String(user.department || "").trim()
+    ) {
+      return forbidden();
+    }
     const { error } = await sb.from("documents").insert({
       doc_number: d.docNumber,
       doc_date: d.docDate || null,
@@ -107,7 +107,13 @@ export async function onRequest({ request, env, params }) {
 
   if (method === "PUT" && path) {
     const d = await request.json();
-    const { error } = await sb
+    if (
+      user.role !== "admin" &&
+      String(d.department || "").trim() !== String(user.department || "").trim()
+    ) {
+      return forbidden();
+    }
+    let query = sb
       .from("documents")
       .update({
         doc_date: d.docDate || null,
@@ -121,6 +127,10 @@ export async function onRequest({ request, env, params }) {
         approved_by: d.approvedBy || "",
       })
       .eq("doc_number", decodeURIComponent(path));
+    if (user.role !== "admin") {
+      query = query.eq("department", String(user.department || "").trim());
+    }
+    const { error } = await query;
     if (error) return Response.json({ success: false, message: error.message });
     return Response.json({ success: true });
   }

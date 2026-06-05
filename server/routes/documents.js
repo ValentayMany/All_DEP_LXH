@@ -57,24 +57,14 @@ router.get("/next-number", auth, async (req, res) => {
 
 // GET /api/documents?dept=xxx&role=yyy
 router.get("/", auth, async (req, res) => {
-  const { dept, role } = req.query;
-
   let query = supabase
     .from("documents")
     .select("*")
     .order("created_at", { ascending: false });
 
-  // Non-admin: filter by allowed departments
-  if (role !== "admin") {
-    let depts = [];
-    if (dept) {
-      if (Array.isArray(dept)) {
-        depts = dept;
-      } else {
-        depts = dept.split(",");
-      }
-    }
-    query = query.in("department", depts.map(d => d.trim()));
+  // Non-admin users can only read their own department.
+  if (req.user.role !== "admin") {
+    query = query.eq("department", String(req.user.department || "").trim());
   }
 
   const { data, error } = await query;
@@ -102,6 +92,12 @@ router.get("/", auth, async (req, res) => {
 // POST /api/documents
 router.post("/", auth, async (req, res) => {
   const d = req.body;
+  if (
+    req.user.role !== "admin" &&
+    String(d.department || "").trim() !== String(req.user.department || "").trim()
+  ) {
+    return res.status(403).json({ success: false, message: "Forbidden" });
+  }
   const { error } = await supabase.from("documents").insert({
     doc_number:    d.docNumber,
     doc_date:      d.docDate    || null,
@@ -123,7 +119,13 @@ router.post("/", auth, async (req, res) => {
 // PUT /api/documents/:docNumber
 router.put("/:docNumber", auth, async (req, res) => {
   const d = req.body;
-  const { error } = await supabase
+  if (
+    req.user.role !== "admin" &&
+    String(d.department || "").trim() !== String(req.user.department || "").trim()
+  ) {
+    return res.status(403).json({ success: false, message: "Forbidden" });
+  }
+  let query = supabase
     .from("documents")
     .update({
       doc_date:      d.docDate    || null,
@@ -137,6 +139,10 @@ router.put("/:docNumber", auth, async (req, res) => {
       approved_by:   d.approvedBy    || "",
     })
     .eq("doc_number", req.params.docNumber);
+  if (req.user.role !== "admin") {
+    query = query.eq("department", String(req.user.department || "").trim());
+  }
+  const { error } = await query;
 
   if (error) return res.json({ success: false, message: error.message });
   res.json({ success: true });

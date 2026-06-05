@@ -73,6 +73,16 @@ function deptNameByKey(k) {
   });
   return f ? f.name : "";
 }
+function visibleDeptNamesForUser() {
+  var cuDept = String((CU && CU.department) || "").trim();
+  if (!CU) return [];
+  if (CU.role === "admin") {
+    return DEPTS.map(function (d) {
+      return d.name;
+    });
+  }
+  return cuDept ? [cuDept] : [];
+}
 function esc(s) {
   return String(s || "")
     .replace(/&/g, "&amp;")
@@ -277,7 +287,7 @@ function buildSidebarNav() {
   if (CU.role === "admin") {
     visibleDepts = DEPTS;
   } else {
-    var allowedNames = DEPT_GROUP_MAP[cuDept] || [cuDept];
+    var allowedNames = visibleDeptNamesForUser();
     visibleDepts = DEPTS.filter(function (d) {
       return allowedNames.indexOf(String(d.name || "").trim()) >= 0;
     });
@@ -423,13 +433,7 @@ function showLogin() {
 var DEPT_APPROVER_DATA = {};
 
 async function loadDashboard() {
-  var cuDept = String(CU.department || "").trim();
-  var allowedNames =
-    CU.role === "admin"
-      ? DEPTS.map(function (d) {
-          return d.name;
-        })
-      : DEPT_GROUP_MAP[cuDept] || [cuDept];
+  var allowedNames = visibleDeptNamesForUser();
   var container = document.getElementById("db-dept-cards");
   container.innerHTML =
     '<div style="color:var(--gray-400);font-size:13px;padding:20px 0">⏳ ກຳລັງໂຫລດ...</div>';
@@ -671,8 +675,7 @@ async function loadDocsBySection(k, dir) {
     return;
   }
   var deptName = deptNameByKey(k) || String(CU.department || "").trim();
-  var cuDept = String(CU.department || "").trim();
-  var allowedNames = DEPT_GROUP_MAP[cuDept] || [cuDept];
+  var allowedNames = visibleDeptNamesForUser();
   if (CU.role !== "admin" && allowedNames.indexOf(deptName) < 0) return;
   var tb = document.getElementById("tb-" + k + "-" + dir);
   if (!tb) return;
@@ -704,18 +707,14 @@ function buildDeptFilter(k, dir) {
   var sel = document.getElementById("dept-filter-" + k + "-" + dir);
   if (!sel) return;
   var thisDeptName = deptNameByKey(k) || "";
-  var cuDept = String(CU.department || "").trim();
   var relatedDepts;
   if (CU.role === "admin") {
     relatedDepts = DEPTS.map(function (d) {
       return d.name;
     });
   } else {
-    var g = DEPT_GROUP_MAP[thisDeptName] || [thisDeptName];
-    var a = DEPT_GROUP_MAP[cuDept] || [cuDept];
-    relatedDepts = g.filter(function (n) {
-      return a.indexOf(n) >= 0;
-    });
+    var a = visibleDeptNamesForUser();
+    relatedDepts = a.indexOf(thisDeptName) >= 0 ? [thisDeptName] : [];
     if (!relatedDepts.length) relatedDepts = [thisDeptName];
   }
   var prev = sel.value;
@@ -750,7 +749,7 @@ function applyDeptFilter(k, dir) {
       ? DEPTS.map(function (d) {
           return d.name;
         })
-      : DEPT_GROUP_MAP[cuDept] || [cuDept];
+      : visibleDeptNamesForUser();
   var validDepts =
     CU.role === "admin"
       ? groupOfSec
