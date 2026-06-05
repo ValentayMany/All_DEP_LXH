@@ -697,17 +697,18 @@ button {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   min-width: 0;
   background: #f8fafc;
 }
 
 #dynamic-sections {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
+  overflow: visible;
+  min-height: calc(100vh - 65px);
 }
 
 .topbar {
@@ -763,22 +764,22 @@ button {
 
 /* Sections */
 .section {
-  flex: 1;
-  overflow-y: auto;
+  flex: 0 0 auto;
+  overflow: visible;
   padding: 28px;
   display: none;
   flex-direction: column;
   gap: 24px;
-  min-height: 0;
+  min-height: calc(100vh - 65px);
 }
 
 /* Dashboard section - no scroll, fills height */
 #sec-dashboard {
-  overflow: hidden !important;
+  overflow: visible !important;
   padding: 20px 24px !important;
   gap: 16px !important;
-  flex: 1 !important;
-  min-height: 0 !important;
+  flex: 0 0 auto !important;
+  min-height: calc(100vh - 65px) !important;
 }
 
 .section.active {
@@ -1397,9 +1398,9 @@ tbody tr:hover {
 
 /* ---- Dept Grid ---- */
 #sec-dashboard .db-dept-grid {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
   gap: 10px;
   align-content: start;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
@@ -1682,9 +1683,9 @@ tbody tr:hover {
    APPROVERS CARD LAYOUT
    ============================================================ */
 .apr-container {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
+  flex: 0 0 auto;
+  overflow: visible;
+  min-height: auto;
 }
 
 .apr-groups {
@@ -1698,7 +1699,7 @@ tbody tr:hover {
   background: var(--white);
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .apr-dept-head {
@@ -1742,6 +1743,7 @@ tbody tr:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--gray-100);
   transition: background 0.15s;
@@ -1763,6 +1765,7 @@ tbody tr:hover {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .apr-avatar {
@@ -1783,12 +1786,16 @@ tbody tr:hover {
   font-size: 13px;
   font-weight: 600;
   color: var(--gray-800);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
 
 .apr-row-actions {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .apr-badge {
