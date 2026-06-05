@@ -38,6 +38,11 @@ function allowedDepartmentsFor(user) {
   return DEPT_GROUP_MAP[dept] || (dept ? [dept] : []);
 }
 
+function isAllowedDepartmentValue(value, allowedDepartments) {
+  const dept = String(value || "").trim();
+  return !dept || allowedDepartments.includes(dept);
+}
+
 // GET /api/documents/next-number?dept=xxx
 router.get("/next-number", auth, async (req, res) => {
   const dept = req.query.dept || "";
@@ -83,7 +88,12 @@ router.get("/", auth, async (req, res) => {
 
   // Non-admin users can only read departments in their configured group.
   if (req.user.role !== "admin") {
-    query = query.in("department", allowedDepartmentsFor(req.user));
+    const allowedDepartments = allowedDepartmentsFor(req.user);
+    query = query
+      .in("department", allowedDepartments)
+      .or(
+        `requester_dept.is.null,requester_dept.eq.,requester_dept.in.(${allowedDepartments.join(",")})`,
+      );
   }
 
   const { data, error } = await query;
@@ -111,9 +121,11 @@ router.get("/", auth, async (req, res) => {
 // POST /api/documents
 router.post("/", auth, async (req, res) => {
   const d = req.body;
+  const allowedDepartments = allowedDepartmentsFor(req.user);
   if (
     req.user.role !== "admin" &&
-    !allowedDepartmentsFor(req.user).includes(String(d.department || "").trim())
+    (!allowedDepartments.includes(String(d.department || "").trim()) ||
+      !isAllowedDepartmentValue(d.requesterDept, allowedDepartments))
   ) {
     return res.status(403).json({ success: false, message: "Forbidden" });
   }
@@ -138,9 +150,11 @@ router.post("/", auth, async (req, res) => {
 // PUT /api/documents/:docNumber
 router.put("/:docNumber", auth, async (req, res) => {
   const d = req.body;
+  const allowedDepartments = allowedDepartmentsFor(req.user);
   if (
     req.user.role !== "admin" &&
-    !allowedDepartmentsFor(req.user).includes(String(d.department || "").trim())
+    (!allowedDepartments.includes(String(d.department || "").trim()) ||
+      !isAllowedDepartmentValue(d.requesterDept, allowedDepartments))
   ) {
     return res.status(403).json({ success: false, message: "Forbidden" });
   }
@@ -159,7 +173,7 @@ router.put("/:docNumber", auth, async (req, res) => {
     })
     .eq("doc_number", req.params.docNumber);
   if (req.user.role !== "admin") {
-    query = query.in("department", allowedDepartmentsFor(req.user));
+    query = query.in("department", allowedDepartments);
   }
   const { error } = await query;
 

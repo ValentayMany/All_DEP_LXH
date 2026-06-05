@@ -254,7 +254,14 @@ function fillDeptSel(id) {
   var sel = document.getElementById(id);
   if (!sel || !DEPTS || !DEPTS.length) return;
   while (sel.options.length > 1) sel.remove(1);
-  DEPTS.forEach(function (d) {
+  var allowedNames = visibleDeptNamesForUser();
+  var options =
+    CU && CU.role !== "admin"
+      ? DEPTS.filter(function (d) {
+          return allowedNames.indexOf(String(d.name || "").trim()) >= 0;
+        })
+      : DEPTS;
+  options.forEach(function (d) {
     var o = document.createElement("option");
     o.value = d.name;
     o.textContent = d.name;
@@ -760,7 +767,10 @@ function applyDeptFilter(k, dir) {
     var deptOk = selectedDept
       ? String(d.department || "").trim() === selectedDept
       : validDepts.indexOf(String(d.department || "").trim()) >= 0;
-    return deptOk && d.docType === docType;
+    var requesterDept = String(d.requesterDept || "").trim();
+    var requesterOk =
+      CU.role === "admin" || !requesterDept || validDepts.indexOf(requesterDept) >= 0;
+    return deptOk && requesterOk && d.docType === docType;
   });
   var q = document.getElementById("search").value.toLowerCase();
   var result = q

@@ -34,6 +34,11 @@ function allowedDepartmentsFor(user) {
   return DEPT_GROUP_MAP[dept] || (dept ? [dept] : []);
 }
 
+function isAllowedDepartmentValue(value, allowedDepartments) {
+  const dept = String(value || "").trim();
+  return !dept || allowedDepartments.includes(dept);
+}
+
 export async function onRequest({ request, env, params }) {
   const user = await getUser(request, env);
   if (!user) {
@@ -78,7 +83,12 @@ export async function onRequest({ request, env, params }) {
       ascending: false,
     });
     if (user.role !== "admin") {
-      query = query.in("department", allowedDepartmentsFor(user));
+      const allowedDepartments = allowedDepartmentsFor(user);
+      query = query
+        .in("department", allowedDepartments)
+        .or(
+          `requester_dept.is.null,requester_dept.eq.,requester_dept.in.(${allowedDepartments.join(",")})`,
+        );
     }
     const { data, error } = await query;
     if (error) return Response.json({ success: false, message: error.message });
@@ -101,9 +111,11 @@ export async function onRequest({ request, env, params }) {
 
   if (method === "POST" && !path) {
     const d = await request.json();
+    const allowedDepartments = allowedDepartmentsFor(user);
     if (
       user.role !== "admin" &&
-      !allowedDepartmentsFor(user).includes(String(d.department || "").trim())
+      (!allowedDepartments.includes(String(d.department || "").trim()) ||
+        !isAllowedDepartmentValue(d.requesterDept, allowedDepartments))
     ) {
       return forbidden();
     }
@@ -126,9 +138,11 @@ export async function onRequest({ request, env, params }) {
 
   if (method === "PUT" && path) {
     const d = await request.json();
+    const allowedDepartments = allowedDepartmentsFor(user);
     if (
       user.role !== "admin" &&
-      !allowedDepartmentsFor(user).includes(String(d.department || "").trim())
+      (!allowedDepartments.includes(String(d.department || "").trim()) ||
+        !isAllowedDepartmentValue(d.requesterDept, allowedDepartments))
     ) {
       return forbidden();
     }
@@ -147,7 +161,7 @@ export async function onRequest({ request, env, params }) {
       })
       .eq("doc_number", decodeURIComponent(path));
     if (user.role !== "admin") {
-      query = query.in("department", allowedDepartmentsFor(user));
+      query = query.in("department", allowedDepartments);
     }
     const { error } = await query;
     if (error) return Response.json({ success: false, message: error.message });
