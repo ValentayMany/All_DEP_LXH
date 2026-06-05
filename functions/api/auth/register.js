@@ -11,15 +11,20 @@ export async function onRequestPost({ request, env }) {
   }
 
   const sb = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
-  const { data: existing } = await sb
+  const { data: existing, error: checkError } = await supabase
     .from("users")
     .select("id")
     .eq("username", username.trim())
-    .single();
+    .maybeSingle();
+
+  if (checkError) {
+    return res.json({ success: false, message: checkError.message });
+  }
+
   if (existing) {
-    return Response.json({
+    return res.json({
       success: false,
-      message: "ชื่อผู้ใช้นี้ถูกใช้งานแล้ว",
+      message: "ຊື່ຜູ້ໃຊ້ນີ້ຖືກໃຊ້ແລ້ວ",
     });
   }
 

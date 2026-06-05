@@ -16,7 +16,7 @@ router.post("/login", async (req, res) => {
       .from("users")
       .select("*")
       .eq("username", username.trim())
-      .single();
+      .maybeSingle();
 
     if (error || !data)
       return res.json({ success: false, message: "ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ" });
@@ -54,7 +54,7 @@ router.post("/register", async (req, res) => {
       .from("users")
       .select("id")
       .eq("username", username.trim())
-      .single();
+      .maybeSingle();
 
     if (existing)
       return res.json({ success: false, message: "ຊື່ຜູ້ໃຊ້ນີ້ຖືກໃຊ້ແລ້ວ" });

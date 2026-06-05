@@ -12,17 +12,18 @@ export async function onRequestPost({ request, env }) {
   }
 
   const sb = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
-  const { data, error } = await sb
-    .from("users")
-    .select("*")
-    .eq("username", username.trim())
-    .single();
-  if (error || !data) {
-    return Response.json({
-      success: false,
-      message: "ชื่อผู้ใช้ หรือ รหัสผ่านไม่ถูกต้อง",
-    });
-  }
+const { data, error } = await supabase
+  .from("users")
+  .select("*")
+  .eq("username", username.trim())
+  .maybeSingle();
+
+if (error || !data) {
+  return res.json({
+    success: false,
+    message: "ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ",
+  });
+}
 
   const ok = await bcryptjs.compare(password, data.password);
   if (!ok) {
