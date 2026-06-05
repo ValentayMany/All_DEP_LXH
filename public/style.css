@@ -1063,13 +1063,14 @@ td:nth-child(6) {
 
 th:nth-child(7),
 td:nth-child(7) {
-  width: 10%;
+  width: 0;
+  display: none;
 }
 
 th:nth-child(9),
 td:nth-child(9) {
-  width: 0;
-  display: none;
+  width: 10%;
+  display: table-cell;
 }
 
 th:nth-child(10),
