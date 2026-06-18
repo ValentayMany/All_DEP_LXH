@@ -63,7 +63,7 @@ async function nextDocumentNumber(dept) {
   const nextNum = maxNum + 1;
   const docNumber = isStorage
     ? `${String(nextNum).padStart(5, "0")}/ID/LXH`
-    : `${prefix}${String(nextNum).padStart(7, "0")}`;
+    : `${prefix}0000${nextNum}`;
   return { docNumber };
 }
 

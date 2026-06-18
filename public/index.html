@@ -4,11 +4,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="description" content="ລະບົບຈັດການເອກະສານດິຈິຕອລ ໂຮງໝໍຫຼັກໄຊ — Digital Document Management System" />
   <title>ລະບົບຈັດການເອກະສານດິຈິຕອລ</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;500;600;700&display=swap"
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Lao:wght@400;500;600;700;800&display=swap"
     rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=12" />
+  <link rel="stylesheet" href="style.css?v=22" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -89,44 +93,106 @@
           </div>
         </div>
 
-        <!-- DASHBOARD -->
+        <!-- DASHBOARD (Modern Clean Style) -->
+        <!-- DASHBOARD (Modern Premium Style) -->
         <div id="sec-dashboard" class="section">
-          <div class="sec-head">
-            <div class="sec-head-left">
-              <h2>📊 Dashboard</h2>
-              <p>ພາບລວມເອກະສານທັງໝົດ</p>
-            </div>
-            <div class="sec-head-right"><button class="btn-add" onclick="loadDashboard()">🔄 ລີເຟຣສ</button></div>
-          </div>
-          <div class="stats-row">
-            <div class="stat-card">
-              <div class="stat-icon total">📊</div>
-              <div>
-                <div class="stat-val" id="db-total">0</div>
-                <div class="stat-lbl">ທັງໝົດ</div>
+          
+          <!-- Welcome Hero Banner -->
+          <div class="db-welcome-hero">
+            <div class="db-welcome-content">
+              <span class="db-welcome-badge">🏥 ລະບົບຈັດການເອກະສານດິຈິຕອລ</span>
+              <h1 id="db-welcome-title">ຍິນດີຕ້ອນຮັບ, ຜູ້ໃຊ້</h1>
+              <p id="db-welcome-desc">ຂໍ້ມູນສັງລວມເອກະສານທັງໝົດໃນລະບົບ ໂຮງໝໍຫຼັກໄຊ</p>
+              <div class="db-welcome-meta">
+                <span class="db-welcome-date-icon">📅</span>
+                <span class="db-welcome-date" id="db-hero-date"></span>
               </div>
             </div>
-            <div class="stat-card">
-              <div class="stat-icon in">📥</div>
-              <div>
-                <div class="stat-val" id="db-in">0</div>
-                <div class="stat-lbl">ຂາເຂົ້າ</div>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon out">📤</div>
-              <div>
-                <div class="stat-val" id="db-out">0</div>
-                <div class="stat-lbl">ຂາອອກ</div>
-              </div>
+            <div class="db-welcome-actions">
+              <button class="btn-hero-refresh" onclick="loadDashboard()">🔄 ລີເຟຣສຂໍ້ມູນ</button>
             </div>
           </div>
-          <div class="db-section-label">ສະຫຼຸບຕາມພະແນກ</div>
-          <div class="db-dept-grid" id="db-dept-cards">
-            <div style="color:var(--gray-400);font-size:13px;padding:20px 0">⏳ ກຳລັງໂຫລດ...</div>
-          </div>
-        </div>
 
+          <!-- Top Summary Cards -->
+          <div class="db-modern-summary-cards">
+            <div class="modern-stat-card">
+              <div class="stat-info">
+                <div class="stat-lbl">ເອກະສານທັງໝົດ</div>
+                <div class="stat-val" id="db-total">0</div>
+                <div class="stat-desc">ເอกະສານທັງໝົດໃນລະບົບ</div>
+              </div>
+              <div class="stat-icon gray">📋</div>
+            </div>
+            <div class="modern-stat-card">
+              <div class="stat-info">
+                <div class="stat-lbl">ຂາເຂົ້າ</div>
+                <div class="stat-val clr-in" id="db-in">0</div>
+                <div class="stat-desc">ເອກະສານຂາເຂົ້າທັງໝົດ</div>
+              </div>
+              <div class="stat-icon blue">📥</div>
+            </div>
+            <div class="modern-stat-card">
+              <div class="stat-info">
+                <div class="stat-lbl">ຂາອອກ</div>
+                <div class="stat-val clr-out" id="db-out">0</div>
+                <div class="stat-desc">ເອກະສານຂາອອກທັງໝົດ</div>
+              </div>
+              <div class="stat-icon green">📤</div>
+            </div>
+          </div>
+
+          <!-- Two-Column Grid Layout -->
+          <div class="db-grid">
+            
+            <!-- Left Column: Charts and Department list -->
+            <div class="db-col-left">
+              
+              <!-- Charts Row -->
+              <div class="db-charts-row">
+                <div class="db-chart-card donut-card">
+                  <div class="db-chart-header">
+                    <h3>📊 ສັດສ່ວນເອກະສານ (Inbound vs Outbound)</h3>
+                  </div>
+                  <div class="db-chart-body">
+                    <canvas id="chart-doc-type"></canvas>
+                  </div>
+                </div>
+                
+                <div class="db-chart-card bar-card">
+                  <div class="db-chart-header">
+                    <h3>🏢 ເອກະສານແຕ່ລະພະແນກ (By Department)</h3>
+                  </div>
+                  <div class="db-chart-body">
+                    <canvas id="chart-doc-dept"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Dept Grid -->
+              <div class="db-modern-grid-label">
+                ສະຫຼຸບຕາມພະແນກ
+              </div>
+              <div class="db-modern-dept-grid" id="db-dept-cards">
+                <div style="color:var(--gray-400);font-size:13px;padding:20px 0;width:100%;text-align:center;">⏳ ກຳລັງໂຫລດ...</div>
+              </div>
+            </div>
+
+            <!-- Right Column: Recent Activity Feed -->
+            <div class="db-col-right">
+              <div class="db-card recent-activity-card">
+                <div class="db-card-header">
+                  <h3>⏱️ ລາຍການເຄື່ອນໄຫວຫຼ້າສຸດ</h3>
+                  <span class="activity-badge">5 ລາຍການຫຼ້າສຸດ</span>
+                </div>
+                <div class="db-card-body" id="db-recent-activity">
+                  <div style="color:var(--gray-400);font-size:13px;padding:20px 0;text-align:center;">⏳ ກຳລັງໂຫລດ...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        
         <!-- DEPT APPROVER MODAL -->
         <div id="dept-modal-overlay" class="dept-modal-overlay hidden" onclick="closeDeptModal()">
           <div class="dept-modal" onclick="event.stopPropagation()">
@@ -275,7 +341,8 @@
       <div class="loading-text">ກຳລັງໂຫລດ...</div>
     </div>
   </div>
-  <script src="app.js?v=11"></script>
+
+  <script src="app.js?v=22"></script>
 </body>
 
 </html>

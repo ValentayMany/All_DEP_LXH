@@ -86,4 +86,19 @@ router.put("/:id", auth, async (req, res) => {
   res.json({ success: true });
 });
 
+// DELETE /api/approvers/:id (Admin only)
+router.delete("/:id", auth, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ success: false, message: "ບໍ່ມີສິດທິໃນການດຳເນີນການ" });
+  }
+
+  const { error } = await supabase
+    .from("approvers")
+    .delete()
+    .eq("id", req.params.id);
+
+  if (error) return res.json({ success: false, message: error.message });
+  res.json({ success: true });
+});
+
 module.exports = router;

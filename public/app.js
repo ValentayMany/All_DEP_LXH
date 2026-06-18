@@ -3,7 +3,14 @@
 // ============================================================
 // ใช้ same origin เมื่อรันผ่าน XAMPP / php -S router.php
 // ถ้า frontend แยก host (เช่น Cloudflare Pages) ให้ตั้งค่าใน localStorage: lhms_api_base
-var API = "";
+var API = localStorage.getItem("lhms_api_base") || "";
+if (!API) {
+  if (window.location.protocol === "file:") {
+    API = "http://localhost:3000";
+  } else if (window.location.hostname === "localhost" && window.location.port !== "3000") {
+    API = "http://localhost:3000";
+  }
+}
 
 // ============================================================
 // STATE
@@ -12,11 +19,18 @@ var CU = null,
   DOCS = [],
   DEPTS = [],
   TOKEN = "";
+var DOCS_CACHE = {}; // per-section cache: key = k+'-'+dir
 var CURRENT_KEY = null,
   CURRENT_DIR = null;
+var PAGE_SIZE = 10;
+var CURRENT_PAGES = {};
+var FILTERED_CACHE = {};
 var FORM_KEY = null,
   FORM_DIR = null,
-  EDIT_DOC_NUM = null;
+  EDIT_DOC_NUM = null,
+  EDIT_DOC_DEPT = null;
+var DONUT_CHART = null,
+  BAR_CHART = null;
 
 var DEPT_GROUP_MAP = {
   ພະແນກບໍລິຫານຫ້ອງການ: ["ພະແນກບໍລິຫານຫ້ອງການ", "ຝາຍບໍລິຫານ"],
@@ -139,9 +153,9 @@ async function api(method, path, body) {
 // INIT
 // ============================================================
 window.onload = function () {
-  var s = sessionStorage.getItem("lhms_u");
-  var t = sessionStorage.getItem("lhms_t");
-  var cached = sessionStorage.getItem("lhms_depts");
+  var s = localStorage.getItem("lhms_u");
+  var t = localStorage.getItem("lhms_t");
+  var cached = localStorage.getItem("lhms_depts");
   if (cached) {
     try {
       var raw = JSON.parse(cached);
@@ -182,8 +196,8 @@ async function doLogin() {
   if (res && res.success) {
     CU = res.user;
     TOKEN = res.token;
-    sessionStorage.setItem("lhms_u", JSON.stringify(CU));
-    sessionStorage.setItem("lhms_t", TOKEN);
+    localStorage.setItem("lhms_u", JSON.stringify(CU));
+    localStorage.setItem("lhms_t", TOKEN);
     showMain();
     loadDepts();
   } else {
@@ -220,7 +234,10 @@ function doLogout() {
   DOCS = [];
   DEPTS = [];
   TOKEN = "";
-  sessionStorage.clear();
+  localStorage.clear();
+  // Hide FAB
+  var fab = document.getElementById("fab-quick-add");
+  if (fab) fab.style.display = "none";
   document.getElementById("page-main").classList.add("hidden");
   document.getElementById("page-main").classList.remove("active");
   document.getElementById("page-auth").classList.remove("hidden");
@@ -242,7 +259,7 @@ async function loadDepts() {
       seen[name] = true;
       return true;
     });
-    sessionStorage.setItem("lhms_depts", JSON.stringify(DEPTS));
+    localStorage.setItem("lhms_depts", JSON.stringify(DEPTS));
   }
   fillDeptSel("r-dept");
   if (CU && document.getElementById("page-main").classList.contains("active")) {
@@ -254,14 +271,7 @@ function fillDeptSel(id) {
   var sel = document.getElementById(id);
   if (!sel || !DEPTS || !DEPTS.length) return;
   while (sel.options.length > 1) sel.remove(1);
-  var allowedNames = visibleDeptNamesForUser();
-  var options =
-    CU && CU.role !== "admin"
-      ? DEPTS.filter(function (d) {
-          return allowedNames.indexOf(String(d.name || "").trim()) >= 0;
-        })
-      : DEPTS;
-  options.forEach(function (d) {
+  DEPTS.forEach(function (d) {
     var o = document.createElement("option");
     o.value = d.name;
     o.textContent = d.name;
@@ -283,6 +293,9 @@ function showMain() {
   document.getElementById("u-name").textContent = CU.fullname || CU.username;
   document.getElementById("u-role").textContent =
     CU.role === "admin" ? "ຜູ້ດູແລລະບົບ" : "ຜູ້ໃຊ້ — " + CU.department;
+  // Show FAB
+  var fab = document.getElementById("fab-quick-add");
+  if (fab) fab.style.display = "flex";
   if (DEPTS.length) buildSidebarNav();
   showDashboard();
 }
@@ -440,6 +453,32 @@ function showLogin() {
 var DEPT_APPROVER_DATA = {};
 
 async function loadDashboard() {
+  if (!DEPTS || !DEPTS.length) {
+    await loadDepts();
+  }
+
+  // Set hero date
+  var heroDate = document.getElementById("db-hero-date");
+  if (heroDate) {
+    var now = new Date();
+    heroDate.textContent = now.toLocaleDateString("lo-LA", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  }
+
+  // Set personalized welcome greeting based on time
+  var welcomeTitle = document.getElementById("db-welcome-title");
+  if (welcomeTitle && CU) {
+    var hrs = new Date().getHours();
+    var greet = "ສະບາຍດີ";
+    if (hrs >= 4 && hrs < 12) {
+      greet = "ສະບາຍດີຕອນເຊົ້າ ພະແນກ"; // Good morning
+    } else if (hrs >= 12 && hrs < 17) {
+      greet = "ສະບາຍດີຕອນບ່າຍ ພະແນກ"; // Good afternoon
+    } else {
+      greet = "ສະບາຍດີຕອນແລງ ພະແນກ"; // Good evening
+    }
+    welcomeTitle.textContent = greet + ", " + esc(CU.fullname || CU.username);
+  }
+
   var allowedNames = visibleDeptNamesForUser();
   var container = document.getElementById("db-dept-cards");
   container.innerHTML =
@@ -464,17 +503,21 @@ async function loadDashboard() {
     CU.role === "admin"
       ? all
       : all.filter(function (d) {
-          return allowedNames.indexOf(String(d.department || "").trim()) >= 0;
-        });
+        return allowedNames.indexOf(String(d.department || "").trim()) >= 0;
+      });
   var activeApprovers = appRes && appRes.success ? appRes.data || [] : [];
 
-  document.getElementById("db-total").textContent = visible.length;
-  document.getElementById("db-in").textContent = visible.filter(function (d) {
+  var totalCount = visible.length;
+  var inCount = visible.filter(function (d) {
     return d.docType === "ຂາເຂົ້າ";
   }).length;
-  document.getElementById("db-out").textContent = visible.filter(function (d) {
+  var outCount = visible.filter(function (d) {
     return d.docType === "ຂາອອກ";
   }).length;
+
+  document.getElementById("db-total").textContent = totalCount;
+  document.getElementById("db-in").textContent = inCount;
+  document.getElementById("db-out").textContent = outCount;
 
   var byDept = {};
   allowedNames.forEach(function (dep) {
@@ -488,13 +531,21 @@ async function loadDashboard() {
   });
   visible.forEach(function (d) {
     var dep = String(d.department || "ບໍ່ລະບຸ").trim();
-    if (!byDept[dep]) byDept[dep] = { total: 0, in: 0, out: 0, approvers: {} };
+    if (!byDept[dep]) {
+      byDept[dep] = { total: 0, in: 0, out: 0, approvers: {} };
+      activeApprovers.forEach(function (ap) {
+        if (String(ap.department || "").trim() === dep) {
+          byDept[dep].approvers[ap.name] = 0;
+        }
+      });
+    }
     byDept[dep].total++;
     if (d.docType === "ຂາເຂົ້າ") byDept[dep].in++;
     else byDept[dep].out++;
     var appBy = String(d.approvedBy || "").trim();
-    if (appBy)
-      byDept[dep].approvers[appBy] = (byDept[dep].approvers[appBy] || 0) + 1;
+    if (appBy && byDept[dep] && Object.prototype.hasOwnProperty.call(byDept[dep].approvers, appBy)) {
+      byDept[dep].approvers[appBy]++;
+    }
   });
 
   DEPT_APPROVER_DATA = byDept;
@@ -503,43 +554,153 @@ async function loadDashboard() {
   if (!keys.length) {
     container.innerHTML =
       '<div style="color:var(--gray-400);font-size:13px;padding:20px 0">📭 ຍັງບໍ່ມີຂໍ້ມູນ</div>';
-    return;
+  } else {
+    container.innerHTML = keys
+      .map(function (dep) {
+        var s = byDept[dep];
+        var hasApprovers = Object.keys(s.approvers).length > 0;
+        var icon = getDeptIcon(dep);
+        var approverBtn = hasApprovers
+          ? '<button class="mc-btn" onclick="openDeptModal(\'' + dep.replace(/'/g, "\\'") + '\')">ເບິ່ງຜູ້ອານຸມັດ</button>'
+          : '';
+        return (
+          '<div class="modern-dept-card">' +
+          '  <div class="mdc-head">' +
+          '    <div class="mdc-icon">' + icon + '</div>' +
+          '    <div class="mdc-title">' + esc(dep) + '</div>' +
+          '  </div>' +
+          '  <div class="mdc-stats">' +
+          '    <div class="mdc-stat">' +
+          '      <div class="mdc-val">' + s.total + '</div>' +
+          '      <div class="mdc-lbl">ທັງໝົດ</div>' +
+          '    </div>' +
+          '    <div class="mdc-stat">' +
+          '      <div class="mdc-val clr-in">' + s.in + '</div>' +
+          '      <div class="mdc-lbl">ຂາເຂົ້າ</div>' +
+          '    </div>' +
+          '    <div class="mdc-stat">' +
+          '      <div class="mdc-val clr-out">' + s.out + '</div>' +
+          '      <div class="mdc-lbl">ຂາອອກ</div>' +
+          '    </div>' +
+          '  </div>' +
+          (approverBtn ? '  <div class="mdc-actions">' + approverBtn + '</div>' : '') +
+          '</div>'
+        );
+      })
+      .join("");
   }
 
-  container.innerHTML = keys
-    .map(function (dep) {
-      var s = byDept[dep];
-      var icon = getDeptIcon(dep);
-      var hasApprovers = Object.values(s.approvers).some(function (v) {
-        return v > 0;
-      });
-      return (
-        '<div class="db-dept-card" onclick="openDeptModal(\'' +
-        dep.replace(/'/g, "\\'") +
-        "')\">" +
-        '<div class="db-dept-card-head"><div class="db-dept-icon">' +
-        icon +
-        "</div><span>" +
-        esc(dep) +
-        "</span></div>" +
-        '<div class="db-dept-stats">' +
-        '<div class="db-dept-stat"><div class="db-dept-stat-val">' +
-        s.total +
-        '</div><div class="db-dept-stat-lbl">ທັງໝົດ</div></div>' +
-        '<div class="db-dept-stat"><div class="db-dept-stat-val clr-in">' +
-        s.in +
-        '</div><div class="db-dept-stat-lbl">ຂາເຂົ້າ</div></div>' +
-        '<div class="db-dept-stat"><div class="db-dept-stat-val clr-out">' +
-        s.out +
-        '</div><div class="db-dept-stat-lbl">ຂາອອກ</div></div>' +
-        "</div>" +
-        (hasApprovers
-          ? '<div class="db-dept-hint">👆 ກົດເບິ່ງຜູ້ອານຸມັດ</div>'
-          : "") +
-        "</div>"
-      );
-    })
-    .join("");
+  // 1. Render Recent Activity Feed (Latest 5 documents)
+  var recentEl = document.getElementById("db-recent-activity");
+  if (recentEl) {
+    var recentDocs = visible.slice(0, 5);
+    if (recentDocs.length === 0) {
+      recentEl.innerHTML = '<div class="activity-empty">📭 ຍັງບໍ່ມີການເຄື່ອນໄຫວ</div>';
+    } else {
+      recentEl.innerHTML = recentDocs
+        .map(function (d) {
+          var iconClass = d.docType === "ຂາເຂົ້າ" ? "in" : "out";
+          var iconEmoji = d.docType === "ຂາເຂົ້າ" ? "📥" : "📤";
+          return (
+            '<div class="activity-item">' +
+            '  <div class="activity-icon-wrap ' + iconClass + '">' + iconEmoji + '</div>' +
+            '  <div class="activity-details">' +
+            '    <div class="activity-meta">' +
+            '      <span class="activity-num">' + esc(d.docNumber) + '</span>' +
+            '      <span class="activity-time">' + esc(d.docDate) + '</span>' +
+            '    </div>' +
+            '    <div class="activity-subj" title="' + esc(d.subject) + '">' + esc(d.subject) + '</div>' +
+            '    <div class="activity-footer">' +
+            '      <span class="activity-dept">' + esc(d.department) + '</span>' +
+            '      <button class="activity-btn" onclick="openEditForm(\'' + esc(d.docNumber) + '\')">✏️ ແກ້ໄຂ</button>' +
+            '    </div>' +
+            '  </div>' +
+            '</div>'
+          );
+        })
+        .join("");
+    }
+  }
+
+  // 2. Render Donut Chart (Chart.js)
+  var docTypeCanvas = document.getElementById("chart-doc-type");
+  if (docTypeCanvas) {
+    var donutCtx = docTypeCanvas.getContext("2d");
+    if (DONUT_CHART) DONUT_CHART.destroy();
+    DONUT_CHART = new Chart(donutCtx, {
+      type: "doughnut",
+      data: {
+        labels: ["ຂາເຂົ້າ", "ຂາອອກ"],
+        datasets: [{
+          data: [inCount, outCount],
+          backgroundColor: ["#4f46e5", "#10b981"],
+          borderColor: ["#ffffff", "#ffffff"],
+          borderWidth: 2,
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              font: { family: "Noto Sans Lao, Inter", size: 11, weight: "600" },
+              color: "#475569"
+            }
+          }
+        },
+        cutout: "70%"
+      }
+    });
+  }
+
+  // 3. Render Bar Chart (Chart.js)
+  var docDeptCanvas = document.getElementById("chart-doc-dept");
+  if (docDeptCanvas) {
+    var barCtx = docDeptCanvas.getContext("2d");
+    if (BAR_CHART) BAR_CHART.destroy();
+    BAR_CHART = new Chart(barCtx, {
+      type: "bar",
+      data: {
+        labels: keys,
+        datasets: [{
+          label: "ເອກະສານທັງໝົດ",
+          data: keys.map(function (k) { return byDept[k].total; }),
+          backgroundColor: "rgba(79, 70, 229, 0.12)",
+          borderColor: "#4f46e5",
+          borderWidth: 2,
+          borderRadius: 8,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: "y", // Horizontal layout
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              font: { family: "Noto Sans Lao, Inter", size: 10, weight: "600" },
+              color: "#64748b"
+            }
+          },
+          y: {
+            grid: { display: false },
+            ticks: {
+              font: { family: "Noto Sans Lao, Inter", size: 10, weight: "600" },
+              color: "#475569"
+            }
+          }
+        }
+      }
+    });
+  }
 }
 
 function openDeptModal(dep) {
@@ -565,25 +726,25 @@ function openDeptModal(dep) {
     approverKeys.length === 0
       ? '<div class="dml-empty">ຍັງບໍ່ມີຂໍ້ມູນຜູ້ອານຸມັດ</div>'
       : '<div class="dml-title">✍️ ສະຫຼຸບການອານຸມັດ</div>' +
-        approverKeys
-          .map(function (name) {
-            var count = s.approvers[name];
-            var pct = s.total > 0 ? Math.round((count / s.total) * 100) : 0;
-            return (
-              '<div class="dml-row">' +
-              '<div class="dml-info"><span class="dml-name">' +
-              esc(name) +
-              "</span>" +
-              '<span class="dml-count">' +
-              count +
-              " ລາຍການ</span></div>" +
-              '<div class="dml-bar-wrap"><div class="dml-bar" style="width:' +
-              pct +
-              '%"></div></div>' +
-              "</div>"
-            );
-          })
-          .join("");
+      approverKeys
+        .map(function (name) {
+          var count = s.approvers[name];
+          var pct = s.total > 0 ? Math.round((count / s.total) * 100) : 0;
+          return (
+            '<div class="dml-row">' +
+            '<div class="dml-info"><span class="dml-name">' +
+            esc(name) +
+            "</span>" +
+            '<span class="dml-count">' +
+            count +
+            " ລາຍການ</span></div>" +
+            '<div class="dml-bar-wrap"><div class="dml-bar" style="width:' +
+            pct +
+            '%"></div></div>' +
+            "</div>"
+          );
+        })
+        .join("");
   document.getElementById("dept-modal-list").innerHTML = listHtml;
   document.getElementById("dept-modal-overlay").classList.remove("hidden");
 }
@@ -636,6 +797,14 @@ function ensureDocSection(k, dir) {
     dirLabel +
     "</button>" +
     "</div></div>" +
+    // Date filter bar
+    '<div class="date-filter-bar">' +
+    '<label>\ud83d\udcc5 \u0ea7\u0eb1\u0e99\u0e97\u0eb5\u0ec8:</label>' +
+    '<input type="date" id="df-from-' + k + '-' + dir + '" onchange="applyDeptFilter(\'' + k + "','" + dir + "')" + '">' +
+    '<span class="date-filter-sep">\u2192</span>' +
+    '<input type="date" id="df-to-' + k + '-' + dir + '" onchange="applyDeptFilter(\'' + k + "','" + dir + "')" + '">' +
+    '<button class="btn-date-clear" onclick="clearDateFilter(\'' + k + "','" + dir + "')" + '">\u2715 \u0ea5\u0ec9\u0eb2\u0e87</button>' +
+    '</div>' +
     '<div class="stats-row" id="stats-' +
     k +
     "-" +
@@ -668,7 +837,8 @@ function ensureDocSection(k, dir) {
     "-" +
     dir +
     '"><tr><td colspan="11" class="empty-cell">⏳ ກຳລັງໂຫລດ...</td></tr></tbody>' +
-    "</table></div>";
+    "</table></div>" +
+    '<div class="pagination" id="pg-' + k + '-' + dir + '"></div>';
   document.getElementById("dynamic-sections").appendChild(div);
 }
 
@@ -692,8 +862,8 @@ async function loadDocsBySection(k, dir) {
   var fetchDepts =
     CU.role === "admin"
       ? DEPTS.map(function (d) {
-          return d.name;
-        })
+        return d.name;
+      })
       : [deptName];
   var params =
     "role=" +
@@ -705,7 +875,9 @@ async function loadDocsBySection(k, dir) {
       })
       .join("&");
   var res = await api("GET", "/documents?" + params);
-  DOCS = res && res.success ? res.data || [] : [];
+  var loaded = res && res.success ? res.data || [] : [];
+  DOCS = loaded;
+  DOCS_CACHE[k + "-" + dir] = loaded;
   buildDeptFilter(k, dir);
   applyDeptFilter(k, dir);
 }
@@ -745,43 +917,64 @@ function applyDeptFilter(k, dir) {
   var docType = dir === "in" ? "ຂາເຂົ້າ" : "ຂາອອກ";
   var cuDept = String(CU.department || "").trim();
   var thisDeptName = deptNameByKey(k) || cuDept;
-  var groupOfSec =
-    CU.role === "admin"
-      ? DEPTS.map(function (d) {
-          return d.name;
-        })
-      : [thisDeptName];
+  var groupOfSec = [thisDeptName];
   var allowedForUser =
     CU.role === "admin"
       ? DEPTS.map(function (d) {
-          return d.name;
-        })
+        return d.name;
+      })
       : visibleDeptNamesForUser();
   var validDepts =
     CU.role === "admin"
       ? groupOfSec
       : groupOfSec.filter(function (n) {
-          return allowedForUser.indexOf(n) >= 0;
-        });
-  var base = DOCS.filter(function (d) {
+        return allowedForUser.indexOf(n) >= 0;
+      });
+
+  // Use per-section cache to avoid race conditions when navigating between sections
+  var sectionDocs = DOCS_CACHE[k + "-" + dir] || DOCS;
+
+  var base = sectionDocs.filter(function (d) {
     var deptOk = selectedDept
       ? String(d.department || "").trim() === selectedDept
       : validDepts.indexOf(String(d.department || "").trim()) >= 0;
     var requesterDept = String(d.requesterDept || "").trim();
     var requesterOk =
-      CU.role === "admin" || !requesterDept || validDepts.indexOf(requesterDept) >= 0;
-    return deptOk && requesterOk && d.docType === docType;
+      CU.role === "admin" || !requesterDept || allowedForUser.indexOf(requesterDept) >= 0;
+    // Date range filter
+    var dateOk = true;
+    var fromEl = document.getElementById("df-from-" + k + "-" + dir);
+    var toEl = document.getElementById("df-to-" + k + "-" + dir);
+    var fromDate = fromEl ? fromEl.value : "";
+    var toDate = toEl ? toEl.value : "";
+    if (fromDate || toDate) {
+      var docDate = String(d.docDate || "").slice(0, 10);
+      if (fromDate && docDate < fromDate) dateOk = false;
+      if (toDate && docDate > toDate) dateOk = false;
+    }
+    return deptOk && requesterOk && d.docType === docType && dateOk;
   });
   var q = document.getElementById("search").value.toLowerCase();
   var result = q
     ? base.filter(function (d) {
-        return Object.values(d).some(function (v) {
-          return String(v).toLowerCase().indexOf(q) >= 0;
-        });
-      })
+      return Object.values(d).some(function (v) {
+        return String(v).toLowerCase().indexOf(q) >= 0;
+      });
+    })
     : base;
-  renderTableTo("tb-" + k + "-" + dir, result, k, dir);
+  FILTERED_CACHE[k + "-" + dir] = result;
+  CURRENT_PAGES[k + "-" + dir] = 1;
+  renderPage(k, dir);
 }
+
+function clearDateFilter(k, dir) {
+  var fromEl = document.getElementById("df-from-" + k + "-" + dir);
+  var toEl = document.getElementById("df-to-" + k + "-" + dir);
+  if (fromEl) fromEl.value = "";
+  if (toEl) toEl.value = "";
+  applyDeptFilter(k, dir);
+}
+
 
 function updateStats(k, dir, docs) {
   var t = document.getElementById("st-total-" + k + "-" + dir);
@@ -816,8 +1009,8 @@ function renderTableTo(tbId, docs, k, dir) {
       var delBtn =
         CU.role === "admin"
           ? '<button class="btn-del" onclick="delDoc(\'' +
-            esc(d.docNumber) +
-            '\')" title="ລຶບ">🗑</button>'
+          esc(d.docNumber) +
+          '\')" title="ລຶບ">🗑</button>'
           : "";
       var badge =
         d.docType === "ຂາເຂົ້າ"
@@ -825,9 +1018,9 @@ function renderTableTo(tbId, docs, k, dir) {
           : '<span class="badge badge-out">📤 ຂາອອກ</span>';
       return (
         "<tr>" +
-        '<td class="doc-num">' +
+        '<td><span class="doc-num">' +
         esc(d.docNumber) +
-        "</td>" +
+        "</span></td>" +
         "<td>" +
         esc(d.docDate) +
         "</td><td>" +
@@ -868,12 +1061,79 @@ function filterDocs() {
 }
 
 // ============================================================
+// PAGINATION
+// ============================================================
+function renderPage(k, dir) {
+  var key = k + "-" + dir;
+  var allDocs = FILTERED_CACHE[key] || [];
+  var page = CURRENT_PAGES[key] || 1;
+  var totalPages = Math.max(1, Math.ceil(allDocs.length / PAGE_SIZE));
+  if (page > totalPages) page = totalPages;
+  CURRENT_PAGES[key] = page;
+
+  var start = (page - 1) * PAGE_SIZE;
+  var pageDocs = allDocs.slice(start, start + PAGE_SIZE);
+
+  renderTableTo("tb-" + k + "-" + dir, pageDocs, k, dir);
+  // Override stats with ALL filtered docs (not just current page)
+  updateStats(k, dir, allDocs);
+  renderPagination(k, dir, allDocs.length);
+}
+
+function renderPagination(k, dir, total) {
+  var pgEl = document.getElementById("pg-" + k + "-" + dir);
+  if (!pgEl) return;
+  var totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  var currentPage = CURRENT_PAGES[k + "-" + dir] || 1;
+
+  if (totalPages <= 1) {
+    pgEl.innerHTML = "";
+    return;
+  }
+
+  var html = '<div class="pg-wrap">';
+  // Previous
+  html += '<button class="pg-btn pg-prev' + (currentPage <= 1 ? ' pg-disabled' : '') + '"' +
+    (currentPage > 1 ? " onclick=\"goToPage('" + k + "','" + dir + "'," + (currentPage - 1) + ")\"" : '') +
+    '>◀ ກ່ອນ</button>';
+
+  // Page numbers (show max 5)
+  var startPage = Math.max(1, currentPage - 2);
+  var endPage = Math.min(totalPages, startPage + 4);
+  if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
+
+  for (var i = startPage; i <= endPage; i++) {
+    html += '<button class="pg-btn pg-num' + (i === currentPage ? ' pg-active' : '') + '"' +
+      " onclick=\"goToPage('" + k + "','" + dir + "'," + i + ")\">" + i + '</button>';
+  }
+
+  // Next
+  html += '<button class="pg-btn pg-next' + (currentPage >= totalPages ? ' pg-disabled' : '') + '"' +
+    (currentPage < totalPages ? " onclick=\"goToPage('" + k + "','" + dir + "'," + (currentPage + 1) + ")\"" : '') +
+    '>ຕໍ່ ▶</button>';
+
+  html += '</div>';
+  pgEl.innerHTML = html;
+}
+
+function goToPage(k, dir, page) {
+  CURRENT_PAGES[k + "-" + dir] = page;
+  renderPage(k, dir);
+  // Scroll table into view
+  var tableWrap = document.getElementById("tb-" + k + "-" + dir);
+  if (tableWrap && tableWrap.closest('.table-wrap')) {
+    tableWrap.closest('.table-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+// ============================================================
 // MODAL / FORM
 // ============================================================
 async function openForm(k, dir, forceDeptName) {
   FORM_KEY = k;
   FORM_DIR = dir;
   EDIT_DOC_NUM = null;
+  EDIT_DOC_DEPT = null;
   var deptName = forceDeptName || deptNameByKey(k) || "";
   var dirLabel = dir === "in" ? "ຂາເຂົ້າ" : "ຂາອອກ";
   var now = new Date();
@@ -904,13 +1164,29 @@ async function openForm(k, dir, forceDeptName) {
 }
 
 function openEditForm(docNum) {
-  var d = DOCS.find(function (x) {
+  // Search the correct section's cache first, then fall back to all caches
+  var sectionKey = (CURRENT_KEY || "") + "-" + (CURRENT_DIR || "");
+  var sectionDocs = DOCS_CACHE[sectionKey] || DOCS;
+  var d = sectionDocs.find(function (x) {
     return x.docNumber === docNum;
   });
-  if (!d) return;
+  // Fallback: search all cached sections
+  if (!d) {
+    var allKeys = Object.keys(DOCS_CACHE);
+    for (var i = 0; i < allKeys.length; i++) {
+      d = DOCS_CACHE[allKeys[i]].find(function (x) { return x.docNumber === docNum; });
+      if (d) break;
+    }
+  }
+  if (!d) {
+    showToast("⚠️ ບໍ່ພົບຂໍ້ມູນເອກະສານ — ລອງ Refresh ໜ້ານີ້ໃໝ່", true);
+    return;
+  }
+
   FORM_KEY = CURRENT_KEY;
   FORM_DIR = CURRENT_DIR;
   EDIT_DOC_NUM = docNum;
+  EDIT_DOC_DEPT = d.department;
   var dirLabel = CURRENT_DIR === "in" ? "ຂາເຂົ້າ" : "ຂາອອກ";
   document.getElementById("modal-title").textContent = "✏️ ແກ້ໄຂ" + dirLabel;
   document.getElementById("f-num").value = d.docNumber;
@@ -969,7 +1245,7 @@ async function submitDoc() {
     subject: document.getElementById("f-subj").value.trim(),
     recipient: document.getElementById("f-recv").value.trim(),
     requesterDept: document.getElementById("f-dept").value,
-    department: deptNameByKey(FORM_KEY) || String(CU.department || "").trim(),
+    department: EDIT_DOC_DEPT || deptNameByKey(FORM_KEY) || String(CU.department || "").trim(),
     docType: document.getElementById("f-type").value,
     approvedBy: document.getElementById("f-approved").value.trim(),
     details: document.getElementById("f-det").value.trim(),
@@ -1156,6 +1432,11 @@ function renderApproversTable() {
           '">' +
           (isActive ? "🔒" : "🔓") +
           "</button>" +
+          '<button class="apr-btn apr-btn-del" onclick="deleteApprover(\'' +
+          ap.id +
+          '\',\'' +
+          esc(ap.name).replace(/'/g, "\\'") +
+          '\')" title="ລຶບ">🗑</button>' +
           "</div>" +
           "</div>";
       });
@@ -1220,7 +1501,7 @@ async function submitApprover() {
 
   if (res && res.success) {
     closeApproverModal();
-    showToast("✅ ບັນທຶкສຳເລັດແລ້ວ!");
+    showToast("✅ ບັນທຶກສຳເລັດແລ້ວ!");
     loadApprovers();
   } else {
     showToast("❌ ຜິດພາດ: " + (res ? res.message : ""), true);
@@ -1244,3 +1525,85 @@ async function toggleApproverStatus(id, currentActive) {
     showToast("❌ ຜິດພາດ: " + (res ? res.message : ""), true);
   }
 }
+
+async function deleteApprover(id, name) {
+  var confirmMsg = "ต้องการลบผู้อนุมัติ \"" + name + "\" ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้";
+  // Convert to Lao: ຕ້ອງການລຶບຜູ້ອານຸມັດ "[name]" ແທ້ບໍ? ການດຳເນີນການນີ້ບໍ່ສາມາດຍົກເລີກໄດ້.
+  var confirmMsgLao = "ຕ້ອງການລຶບຜູ້ອານຸມັດ \"" + name + "\" ແທ້ບໍ? ການດຳເນີນການນີ້ບໍ່ສາມາດຍົກເລີກໄດ້.";
+  if (!confirm(confirmMsgLao)) return;
+
+  showLoading();
+  var res = await api("DELETE", "/approvers/" + id);
+  hideLoading();
+
+  if (res && res.success) {
+    showToast("✅ ລຶບຜູ້ອານຸມັດສຳເລັດ!");
+    loadApprovers();
+  } else {
+    showToast("❌ ຜິດພາດ: " + (res ? res.message : ""), true);
+  }
+}
+
+// ============================================================
+// FAB — QUICK ADD FLOATING BUTTON
+// ============================================================
+var FAB_OPEN = false;
+
+function toggleFab() {
+  FAB_OPEN = !FAB_OPEN;
+  var btn = document.getElementById("fab-main-btn");
+  var menu = document.getElementById("fab-menu");
+  if (btn) btn.classList.toggle("open", FAB_OPEN);
+  if (menu) menu.classList.toggle("open", FAB_OPEN);
+}
+
+function closeFab() {
+  FAB_OPEN = false;
+  var btn = document.getElementById("fab-main-btn");
+  var menu = document.getElementById("fab-menu");
+  if (btn) btn.classList.remove("open");
+  if (menu) menu.classList.remove("open");
+}
+
+function _fabGetDept() {
+  if (!CU || !DEPTS.length) return null;
+  if (CU.role === "admin") return DEPTS[0];
+  var cuDept = String(CU.department || "").trim();
+  return DEPTS.find(function (d) { return String(d.name || "").trim() === cuDept; }) || DEPTS[0];
+}
+
+function fabAddIn() {
+  closeFab();
+  var dept = _fabGetDept();
+  if (!dept) { showToast("⚠️ ບົ່ພົ່ນພະແນກ", true); return; }
+  var k = deptKey(dept.name);
+  ensureDocSection(k, "in");
+  setActiveSection(document.getElementById("sec-" + k + "-in"), "ni-" + k + "-in");
+  CURRENT_KEY = k;
+  CURRENT_DIR = "in";
+  loadDocsBySection(k, "in").then(function () {
+    openForm(k, "in", dept.name);
+  });
+}
+
+function fabAddOut() {
+  closeFab();
+  var dept = _fabGetDept();
+  if (!dept) { showToast("⚠️ ບົ່ພົ່ນພະແນກ", true); return; }
+  var k = deptKey(dept.name);
+  ensureDocSection(k, "out");
+  setActiveSection(document.getElementById("sec-" + k + "-out"), "ni-" + k + "-out");
+  CURRENT_KEY = k;
+  CURRENT_DIR = "out";
+  loadDocsBySection(k, "out").then(function () {
+    openForm(k, "out", dept.name);
+  });
+}
+
+// Close FAB when clicking outside
+document.addEventListener("click", function (e) {
+  var fab = document.getElementById("fab-quick-add");
+  if (FAB_OPEN && fab && !fab.contains(e.target)) {
+    closeFab();
+  }
+});
