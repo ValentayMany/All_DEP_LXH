@@ -133,6 +133,37 @@ function showToast(msg, isError) {
 // ============================================================
 // API CALLS
 // ============================================================
+// ============================================================
+// TOKEN AUTO-REFRESH
+// ============================================================
+var _refreshTimer = null;
+
+async function refreshToken() {
+  if (!TOKEN) return;
+  try {
+    var res = await fetch(API + "/api/auth/refresh", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + TOKEN, "Content-Type": "application/json" },
+    });
+    if (res.ok) {
+      var data = await res.json();
+      if (data.success && data.token) {
+        TOKEN = data.token;
+        localStorage.setItem("lhms_t", TOKEN);
+        console.log("🔄 Token refreshed silently");
+      }
+    }
+  } catch (e) {
+    console.warn("Token refresh failed:", e.message);
+  }
+}
+
+function scheduleTokenRefresh() {
+  // Refresh every 30 minutes while user is active
+  if (_refreshTimer) clearInterval(_refreshTimer);
+  _refreshTimer = setInterval(refreshToken, 30 * 60 * 1000);
+}
+
 async function api(method, path, body) {
   var opts = {
     method: method,
@@ -142,8 +173,19 @@ async function api(method, path, body) {
   if (body) opts.body = JSON.stringify(body);
   try {
     var res = await fetch(API + "/api" + path, opts);
-    // Token expired or invalid → auto logout
+    // Token expired → try refresh once, then retry
     if (res.status === 401) {
+      await refreshToken();
+      if (TOKEN) {
+        opts.headers["Authorization"] = "Bearer " + TOKEN;
+        var retry = await fetch(API + "/api" + path, opts);
+        if (retry.status === 401) {
+          showToast("⏰ Session ໝົດອາຍຸ — ກະລຸນາ Login ໃໝ່", true);
+          setTimeout(doLogout, 1500);
+          return { success: false, message: "Session ໝົດອາຍຸ" };
+        }
+        return await retry.json();
+      }
       showToast("⏰ Session ໝົດອາຍຸ — ກະລຸນາ Login ໃໝ່", true);
       setTimeout(doLogout, 1500);
       return { success: false, message: "Session ໝົດອາຍຸ" };
@@ -180,6 +222,7 @@ window.onload = function () {
     CU = JSON.parse(s);
     TOKEN = t;
     showMain();
+    scheduleTokenRefresh(); // ⬅ start auto-refresh timer
   } else {
     if (!DEPTS.length) loadDepts();
   }
@@ -206,6 +249,7 @@ async function doLogin() {
     localStorage.setItem("lhms_t", TOKEN);
     showMain();
     loadDepts();
+    scheduleTokenRefresh(); // ⬅ start auto-refresh timer
   } else {
     showErr("login-error", res ? res.message : "ເກີດຂໍ້ຜິດພາດ");
   }
@@ -236,6 +280,8 @@ async function doRegister() {
 }
 
 function doLogout() {
+  // Stop refresh timer
+  if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
   CU = null;
   DOCS = [];
   DEPTS = [];

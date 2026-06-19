@@ -34,11 +34,32 @@ router.post("/login", async (req, res) => {
       role: data.role,
     };
 
-    const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: "8h" });
+    const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: "24h" });
     res.json({ success: true, user, token });
   } catch (err) {
     console.error("Login error:", err);
     res.json({ success: false, message: "ເກີດຂໍ້ຜິດພາດໃນລະບົບ" });
+  }
+});
+
+// POST /api/auth/refresh — ຕໍ່ອາຍຸ token ໂດຍບໍ່ຕ້ອງ login ໃໝ່
+router.post("/refresh", async (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) return res.status(401).json({ success: false });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = {
+      id: decoded.id,
+      username: decoded.username,
+      fullname: decoded.fullname,
+      department: decoded.department,
+      role: decoded.role,
+    };
+    const newToken = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: "24h" });
+    res.json({ success: true, token: newToken, user });
+  } catch {
+    res.status(401).json({ success: false, message: "Token ໝົດອາຍຸ" });
   }
 });
 
