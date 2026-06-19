@@ -43,10 +43,9 @@ function isStorageDepartment(dept) {
 }
 
 function canAccessDocument(row, allowedDepartments) {
-  return (
-    allowedDepartments.includes(String(row.department || "").trim()) &&
-    isAllowedDepartmentValue(row.requester_dept, allowedDepartments)
-  );
+  // Only gate on the document's own department, not requester_dept.
+  // requester_dept restriction applies only when creating/editing (POST/PUT).
+  return allowedDepartments.includes(String(row.department || "").trim());
 }
 
 function formatDocument(row) {
