@@ -142,6 +142,12 @@ async function api(method, path, body) {
   if (body) opts.body = JSON.stringify(body);
   try {
     var res = await fetch(API + "/api" + path, opts);
+    // Token expired or invalid → auto logout
+    if (res.status === 401) {
+      showToast("⏰ Session ໝົດອາຍຸ — ກະລຸນາ Login ໃໝ່", true);
+      setTimeout(doLogout, 1500);
+      return { success: false, message: "Session ໝົດອາຍຸ" };
+    }
     return await res.json();
   } catch (e) {
     console.error("API error:", e);
@@ -494,7 +500,10 @@ async function loadDashboard() {
   ]);
   hideLoading();
   if (!res || !res.success) {
-    container.innerHTML = '<div style="color:var(--red)">❌ Error</div>';
+    container.innerHTML =
+      '<div style="color:var(--red);padding:16px">❌ ໂຫລດຂໍ້ມູນບໍ່ສຳເລັດ: ' +
+      esc(res && res.message ? res.message : "ກະລຸນາ Refresh ໜ້ານີ້") +
+      '</div>';
     return;
   }
 
